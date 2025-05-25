@@ -1,8 +1,8 @@
 import esbuild from "esbuild";
 import process from "process";
 import builtins from "builtin-modules";
-import fs from "fs";
-import path from "path";
+import copy from "esbuild-plugin-copy";
+import { sassPlugin } from 'esbuild-sass-plugin';
 
 const banner =
 `/*
@@ -13,14 +13,13 @@ if you want to view the source, please visit the github repository of this plugi
 
 const prod = (process.argv[2] === "production");
 
-const outputFile = "dist/main.js";
-const additionalDirs = ["dist/adicional", "dist/another"];
+const outputDir = "dist";
 
 const context = await esbuild.context({
 	banner: {
 		js: banner,
 	},
-	entryPoints: ["src/main.ts"],
+	entryPoints: ["src/main.ts", "src/styles/styles.scss"],
 	bundle: true,
 	external: [
 		"obsidian",
@@ -42,24 +41,47 @@ const context = await esbuild.context({
 	logLevel: "info",
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,
-	outfile: outputFile,
-	minify: prod,
+	outdir: outputDir,
+	loader: {
+		'.svg': 'file', // Si usas SVG en tu proyecto
+	},
+	plugins: [
+		sassPlugin({
+			type: 'css', // Genera un archivo CSS
+		}),
+		copy({
+			// Configuración del plugin
+			resolveFrom: "cwd", // Usa la ruta relativa al directorio actual
+			assets: [
+				{
+						from: "src/views/templates/**/*", // Ruta de origen
+						to: "dist/templates", // Ruta de destino
+				},
+				{
+					from: "src/locales/**/*", // Ruta de origen
+					to: "dist/locales", // Ruta de destino
+				},
+				{
+						from: "src/styles/**/*", // Ruta de origen
+						to: "dist", // Ruta de destino
+				},
+				{
+						from: "manifest.json", // Ruta de origen
+						to: "dist/manifest.json", // Ruta de destino
+				},
+				{
+					from: "dist/**/*",
+					to: "C:/Users/elias/OneDrive/Documents/OneDrive/Obsidian/develop/.obsidian/plugins/obsidian-sample-plugin",
+				},
+			],
+		}),
+	],
 });
 
-async function copyToAdditionalDirs() {
-    for (const dir of additionalDirs) {
-        const targetPath = path.join(dir, "main.js");
-        await fs.promises.mkdir(dir, { recursive: true });
-        await fs.promises.copyFile(outputFile, targetPath);
-        console.log(`Copied to ${targetPath}`);
-    }
-}
 
 if (prod) {
     await context.rebuild();
-    await copyToAdditionalDirs();
     process.exit(0);
 } else {
     await context.watch();
-    await copyToAdditionalDirs();
 }
